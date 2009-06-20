@@ -60,7 +60,7 @@ public class ValaDoc : Object {
 		{ "inherit", 0, 0, OptionArg.NONE, ref add_inherited, "Adds inherited elements to a class", null },
 		{ "deps", 0, 0, OptionArg.NONE, ref with_deps, "Adds packages to the documentation", null },
 		{ "enable-non-null-experimental", 0, 0, OptionArg.NONE, ref non_null_experimental, "Enable experimentalenhancements for non-null types", null },
-		{ "doclet", 0, 0, OptionArg.FILENAME, ref pluginpath, "plugin", "DIRECTORY" },
+		{ "doclet", 0, 0, OptionArg.STRING, ref pluginpath, "plugin", "Name of an included doclet or path to custom doclet" },
 		{ "package-name", 0, 0, OptionArg.STRING, ref pkg_name, "package name", "DIRECTORY" },
 		{ "package-version", 0, 0, OptionArg.STRING, ref pkg_version, "package version", "DIRECTORY" },
 		{ "force", 0, 0, OptionArg.NONE, ref force, "force", null },
@@ -114,8 +114,25 @@ public class ValaDoc : Object {
 		settings.with_deps = this.with_deps;
 		settings._private = this._private;
 		settings.path = realpath ( this.directory );
-
-		string fulldirpath = (pluginpath == null)? Config.plugin_dir : pluginpath;
+		
+		string fulldirpath = "";
+		if ( pluginpath == null ) {
+			pluginpath = build_filename ( Config.plugin_dir, "html" );
+		} else if ( is_absolute ( pluginpath ) == false ) {
+			/* 
+		   * Test to see if the plugin exists in the expanded path and then fallback
+		   * to using the configured plugin directory
+		   */
+			string local_path = build_filename ( Environment.get_current_dir(),
+				pluginpath);
+		  if ( FileUtils.test( local_path, FileTest.EXISTS ) ) {
+		  	fulldirpath = local_path;
+		  } else {
+		    fulldirpath = build_filename ( Config.plugin_dir, pluginpath );
+	    }
+		} else {
+		  fulldirpath = pluginpath;
+	  }
 		ModuleLoader modules = new ModuleLoader ();
 		bool tmp = modules.load ( fulldirpath );
 		if ( tmp == false ) {
@@ -200,7 +217,7 @@ public class ValaDoc : Object {
 
 	static int main ( string[] args ) {
 		ErrorReporter reporter = new ErrorReporter();
-
+    
 		try {
 			var opt_context = new OptionContext ("- Vala Documentation Tool");
 			opt_context.set_help_enabled (true);
@@ -222,11 +239,7 @@ public class ValaDoc : Object {
 			reporter.simple_error ( "No output directory specified." );
 			return quit ( reporter );
 		}
-
-
-		pluginpath = build_filename ( Config.plugin_dir, "html", pluginpath );
-
-
+        
 		if ( !check_pkg_name () ) {
 			reporter.simple_error ( "File allready exists" );
 			return quit ( reporter );
